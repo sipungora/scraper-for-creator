@@ -164,6 +164,9 @@ def main():
     total_chunks = sum(x[1] for x in url_stats)
     total_price = sum(x[2] for x in url_stats)
     print(f"\nВсего чанков: {total_chunks}, примерная стоимость: ${total_price:.4f}")
+    total_chunk_bytes = sum(sum(len(c.encode('utf-8')) for c in chunks) for _, _, chunks in all_chunks)
+    total_chunk_mb = total_chunk_bytes / (1024 * 1024)
+    print(f"\nОценочный объём памяти для всех чанков: {total_chunk_mb:.2f} МБ")
     answer = input("\nПродолжить загрузку embedding в Supabase? (y/n): ").strip().lower()
     if answer != "y":
         print("Операция отменена. Вы можете удалить ненужные URL из docu/source-urls.json и запустить скрипт снова.")
