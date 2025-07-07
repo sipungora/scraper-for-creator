@@ -1,0 +1,76 @@
+# Scrapper: Загрузка и индексация текстов в Supabase с embedding
+
+## Описание
+
+Этот проект автоматически скачивает тексты с заданных URL, разбивает их на чанки, получает embedding через OpenAI и сохраняет всё в таблицу Supabase для последующего поиска и RAG.
+
+## Новый порядок работы
+
+Перед тем как отправлять данные в OpenAI:
+1. Скрипт скачивает и разбивает текст по всем URL из `docu/source-urls.json`.
+2. Выводит таблицу:
+   | url | number of chunks | price |
+3. Показывает итоговую стоимость и спрашивает, продолжать ли загрузку embedding в Supabase.
+4. Если вы отвечаете `n`, скрипт завершает работу — вы можете удалить ненужные URL из `docu/source-urls.json` и запустить скрипт снова.
+5. Только после подтверждения (`y`) начинается отправка embedding в OpenAI и загрузка в Supabase.
+
+**Это позволяет заранее оценить расходы и оптимизировать список источников.**
+
+## Структура таблицы Supabase
+
+| Колонка      | Тип данных      | Описание |
+|--------------|----------------|----------|
+| id           | int8           | Уникальный идентификатор (авто) |
+| content      | text           | Чанк текста (параграф) |
+| metadata     | jsonb          | JSON с source_url и topic |
+| embedding    | vector(1536)   | Вектор embedding (OpenAI) |
+| created_at   | timestamptz    | Время создания (авто) |
+
+> Подробности — см. `docu/db-table.description.md`
+
+## Чанкинг текста (разделение на чанки)
+
+Текст разбивается на осмысленные "страницы" с помощью **рекурсивного сплиттера**:
+- Сначала деление по параграфам, затем по предложениям, затем по словам, затем по символам.
+- **Chunk Size:** 2048 символов
+- **Chunk Overlap:** 200 символов
+
+**Overlap** (перекрытие) — это когда каждый следующий чанк начинается с части предыдущего (например, последние 200 символов предыдущего чанка повторяются в начале следующего). Это важно, чтобы не "разрывать" смысловые блоки текста на границе чанков и не терять важную информацию.
+
+## Установка
+
+1. Клонируйте репозиторий и перейдите в папку проекта.
+2. Установите зависимости:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Создайте файл `.env` на основе `.env.example` и заполните переменные:
+   - `SUPABASE_URL` — URL вашего проекта Supabase
+   - `SUPABASE_KEY` — service role key из Supabase
+   - `OPENAI_API_KEY` — API-ключ OpenAI
+   - `SUPABASE_TABLE` — имя таблицы (по умолчанию: chunks)
+   - `CHUNK_SIZE` — размер чанка (по умолчанию: 2048 символов)
+   - `CHUNK_OVERLAP` — перекрытие чанков (по умолчанию: 200 символов)
+   - `OPENAI_EMBEDDING_MODEL` — название embedding-модели OpenAI (по умолчанию: text-embedding-3-large)
+
+**Пример для text-embedding-3-small:**
+```
+SUPABASE_URL=your-supabase-url
+SUPABASE_KEY=your-supabase-service-role-key
+OPENAI_API_KEY=your-openai-key
+SUPABASE_TABLE=chunks
+CHUNK_SIZE=2048
+CHUNK_OVERLAP=200
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+## Скопируйте `.env.example` в `.env` и заполните свои значения:
+```
+SUPABASE_URL=your-supabase-url
+SUPABASE_KEY=your-supabase-service-role-key
+OPENAI_API_KEY=your-openai-key
+SUPABASE_TABLE=chunks
+CHUNK_SIZE=2048
+CHUNK_OVERLAP=200
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
